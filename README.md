@@ -24,8 +24,8 @@ HeroWall is a professional-grade digital collectibles platform where users colle
 ### Database & Storage
 - **MongoDB 7** - Primary database
 - **Mongoose 8** - ODM with TypeScript support
-- **Redis 7** - Caching & session management
-- **Amazon S3** - Media asset storage
+- **Redis 7** - Caching & session management (configured but commented out)
+- **Local File System** - Media asset storage (free alternative)
 
 ### Authentication & Security
 - **JWT** - Stateless authentication
@@ -45,6 +45,10 @@ HeroWall is a professional-grade digital collectibles platform where users colle
 
 ### API Documentation
 - **Swagger/OpenAPI 3** - Interactive API documentation
+
+### Email Service
+- **Nodemailer** - SMTP email service (free)
+- Gmail/Yahoo/any SMTP provider
 
 ### Monitoring & Logging
 - **Winston** - Structured logging
@@ -81,13 +85,17 @@ HeroWall is a professional-grade digital collectibles platform where users colle
 
 3. **Start infrastructure services**
    ```bash
-   docker-compose up -d mongodb redis elasticsearch
+   docker-compose up -d mongodb elasticsearch
+   # Redis is configured but commented out in the current setup
    ```
 
 4. **Configure environment**
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   # The .env file is already configured with default values
+   # Update the following variables as needed:
+   # - MONGODB_URI: Your MongoDB connection string
+   # - JWT_SECRET: Your JWT secret key
+   # - SMTP_*: Your email SMTP configuration
    ```
 
 5. **Run the application**
@@ -102,7 +110,14 @@ HeroWall is a professional-grade digital collectibles platform where users colle
 
 ### API Documentation
 
-Once the application is running, visit `http://localhost:3000/api` for Swagger documentation.
+Once the application is running, visit `http://localhost:3000/api` for interactive Swagger documentation.
+
+The Swagger UI provides:
+- Complete API endpoint documentation
+- Request/response examples
+- Authentication testing
+- Schema definitions for all DTOs
+- Interactive API testing interface
 
 ### Docker Deployment
 
@@ -115,23 +130,47 @@ docker-compose up --build
 
 ```
 src/
-├── auth/                 # Authentication module
-│   ├── dto/             # Data transfer objects
-│   ├── guards/          # Auth guards
-│   ├── schemas/         # Mongoose schemas
-│   ├── strategies/      # Passport strategies
-│   ├── auth.controller.ts
-│   ├── auth.module.ts
-│   └── auth.service.ts
-├── cards/               # Cards module
-├── collections/         # Collections module
-├── config/              # Configuration module
-├── database/            # Database connection
-├── redis/               # Redis connection
-├── app.controller.ts
-├── app.module.ts
-├── app.service.ts
-└── main.ts
+├── app.controller.ts          # Root controller
+├── app.module.ts              # Root module
+├── app.service.ts             # Root service
+├── main.ts                    # Application entry point
+├── auth/                      # Authentication module
+│   ├── dto/
+│   │   ├── login.dto.ts       # Login data transfer object
+│   │   └── register.dto.ts    # Registration data transfer object
+│   ├── guards/
+│   │   └── jwt-auth.guard.ts  # JWT authentication guard
+│   ├── schemas/
+│   │   └── user.schema.ts     # User MongoDB schema
+│   ├── strategies/
+│   │   └── jwt.strategy.ts    # JWT Passport strategy
+│   ├── auth.controller.ts     # Authentication endpoints
+│   ├── auth.module.ts         # Authentication module
+│   └── auth.service.ts        # Authentication business logic
+├── cards/                     # Cards management module
+│   ├── dto/
+│   │   └── create-card.dto.ts # Card creation DTO
+│   ├── schemas/
+│   │   └── card.schema.ts     # Card MongoDB schema
+│   ├── cards.controller.ts    # Card CRUD endpoints
+│   ├── cards.module.ts        # Cards module
+│   └── cards.service.ts       # Card business logic
+├── collections/               # Collections management module
+│   ├── dto/
+│   │   └── create-collection.dto.ts # Collection creation DTO
+│   ├── schemas/
+│   │   └── collection.schema.ts     # Collection MongoDB schema
+│   ├── collections.controller.ts    # Collection CRUD endpoints
+│   ├── collections.module.ts        # Collections module
+│   └── collections.service.ts       # Collection business logic
+├── config/                    # Configuration module
+│   ├── config.module.ts       # Config module
+│   ├── configuration.ts       # App configuration
+│   └── validation.schema.ts   # Environment validation
+├── database/                  # Database connection
+│   └── database.module.ts     # MongoDB connection module
+└── redis/                     # Redis connection (commented out)
+    └── redis.module.ts        # Redis connection module
 ```
 
 ## 🔐 Authentication
@@ -150,87 +189,78 @@ Authorization: Bearer <token>
 - `POST /auth/profile` - Get user profile
 
 ### Cards Module
-- `GET /cards` - Get all cards
-- `POST /cards` - Create new card
-- `GET /cards/:id` - Get card by ID
-- `PUT /cards/:id` - Update card
-- `DELETE /cards/:id` - Delete card
+- `GET /cards` - Get all cards (public)
+- `POST /cards` - Create new card (authenticated)
+- `GET /cards/:id` - Get card by ID (public)
+- `PUT /cards/:id` - Update card (authenticated)
+- `DELETE /cards/:id` - Delete card (authenticated)
+- `GET /cards/user/my-cards` - Get user's own cards (authenticated)
 
 ### Collections Module
-- `GET /collections` - Get user collections
-- `POST /collections` - Create collection
-- `GET /collections/:id` - Get collection by ID
-- `PUT /collections/:id` - Update collection
-- `DELETE /collections/:id` - Delete collection
+- `GET /collections` - Get user's collections (authenticated)
+- `POST /collections` - Create new collection (authenticated)
+- `GET /collections/:id` - Get collection by ID (authenticated)
+- `PUT /collections/:id` - Update collection (authenticated)
+- `DELETE /collections/:id` - Delete collection (authenticated)
+- `POST /collections/:id/add-card/:cardId` - Add card to collection (authenticated)
+- `POST /collections/:id/remove-card/:cardId` - Remove card from collection (authenticated)
 
-## Project setup
+## 📋 Environment Variables
 
-```bash
-$ npm install
-```
+The application uses the following environment variables (configured in `.env`):
 
-## Compile and run the project
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment mode | `development` |
+| `PORT` | Server port | `3000` |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/herowall` |
+| `JWT_SECRET` | JWT signing secret | Required |
+| `JWT_EXPIRES_IN` | JWT access token expiration | `1h` |
+| `JWT_REFRESH_SECRET` | JWT refresh token secret | Required |
+| `JWT_REFRESH_EXPIRES_IN` | JWT refresh token expiration | `604800` (7 days) |
+| `SMTP_HOST` | SMTP server host | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USER` | SMTP username | Required |
+| `SMTP_PASS` | SMTP password/app password | Required |
+| `FROM_EMAIL` | Sender email address | Required |
+| `UPLOAD_DIR` | File upload directory | `uploads` |
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 🧪 Testing
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Run unit tests
+npm run test
+
+# Run e2e tests
+npm run test:e2e
+
+# Run tests with coverage
+npm run test:cov
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 📦 Build & Deployment
 
-## Resources
+```bash
+# Build for production
+npm run build
 
-Check out a few resources that may come in handy when working with NestJS:
+# Start production server
+npm run start:prod
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 🤝 Contributing
 
-## Support
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📄 License
 
-## Stay in touch
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 📚 Documentation
 
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [API Documentation](API_DOCS.md) - Complete API reference with examples
+- [Swagger UI](http://localhost:3000/api) - Interactive API documentation (when running)
